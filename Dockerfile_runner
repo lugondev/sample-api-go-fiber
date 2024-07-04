@@ -1,0 +1,34 @@
+# Stage 1: Build the Go application
+FROM golang:1.22-bullseye AS builder
+
+# Set the Current Working Directory inside the builder container
+WORKDIR /app
+
+# Copy go.mod and go.sum files
+COPY go.mod go.sum ./
+
+# Download all dependencies. Dependencies will be cached if the go.mod and go.sum files are not changed
+RUN go mod download
+
+RUN touch .env
+
+# Copy the source code from the current directory to the Working Directory inside the builder container
+COPY . .
+
+# Build the Go app
+RUN env GOOS=linux GOARCH=amd64 go build -v -o /main cmd/main.go
+
+# Stage 2: Create a smaller runtime image
+FROM debian:bullseye-slim
+
+# Copy the compiled Go binary from the builder stage
+COPY --from=builder /main /main
+
+# Copy the .env file if necessary (assuming it is needed for runtime)
+COPY --from=builder /app/.env /app/.env
+
+# Expose port 8080 to the outside world
+EXPOSE 8080
+
+# Command to run the executable
+CMD ["/main", "..."]
